@@ -3,8 +3,8 @@
 *.env
 .env.*
 
-# Downloaded data
-test-data/
+# # Downloaded data
+# test-data/
 
 # Python virtual environment
 venv/
