@@ -70,14 +70,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def load_credentials() -> tuple[str, str]:
-    """Load Copernicus Marine credentials from .env file."""
-    load_dotenv(ENV_FILE)
+    """Load Copernicus Marine credentials.
+
+    Reads from a .env file when present (local dev) or from environment
+    variables injected at runtime (Docker / Jenkins / CI).
+    """
+    load_dotenv(ENV_FILE)  # silently no-ops if .env is absent (e.g. in Docker)
     username = os.getenv("COPERNICUSMARINE_USERNAME")
     password = os.getenv("COPERNICUSMARINE_PASSWORD")
     if not username or not password:
         raise EnvironmentError(
-            "COPERNICUSMARINE_USERNAME and COPERNICUSMARINE_PASSWORD must be "
-            f"set in {ENV_FILE}"
+            "Credentials not found. Set COPERNICUSMARINE_USERNAME and "
+            "COPERNICUSMARINE_PASSWORD as environment variables (Docker / CI) "
+            f"or in the {ENV_FILE} file (local dev)."
         )
     return username, password
 

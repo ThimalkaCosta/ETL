@@ -1,0 +1,26 @@
+# Credentials – never include in Docker image
+.env
+
+# Virtual environment
+venv/
+.venv/
+
+# Downloaded data
+test-data/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Git metadata
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
