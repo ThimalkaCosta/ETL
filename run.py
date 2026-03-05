@@ -17,8 +17,10 @@ import copernicusmarine
 
 # Paths
 BASE_DIR = Path(__file__).parent
-OUTPUT_DIR = BASE_DIR / "test-data"
 ENV_FILE = BASE_DIR / ".env"
+# Allow Jenkins (or any CI) to redirect downloads to a specific local folder.
+# Falls back to test-data/ next to run.py when the variable is not set.
+OUTPUT_DIR = Path(os.getenv("ETL_OUTPUT_DIR", BASE_DIR / "test-data"))
 
 # Area of interest
 MIN_LONGITUDE = 79.970

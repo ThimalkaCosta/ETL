@@ -6,7 +6,7 @@ pipeline {
     environment {
         PYTHON      = "${WORKSPACE}\\venv\\Scripts\\python.exe"
         PIP         = "${WORKSPACE}\\venv\\Scripts\\pip.exe"
-        OUTPUT_DIR  = "${WORKSPACE}\\test-data"
+        OUTPUT_DIR  = "C:\\Users\\thima\\OneDrive\\Desktop\\ETL\\test-data"
     }
 
     options {
@@ -53,6 +53,7 @@ pipeline {
                         passwordVariable: 'COPERNICUSMARINE_PASSWORD'
                     )
                 ]) {
+                    withEnv(["ETL_OUTPUT_DIR=${OUTPUT_DIR}"]) {
                     powershell '''
                         New-Item -ItemType Directory -Force -Path "$env:OUTPUT_DIR" | Out-Null
                         & "$env:PYTHON" "$env:WORKSPACE\\run.py"
@@ -60,12 +61,20 @@ pipeline {
                             throw "run.py exited with code $LASTEXITCODE"
                         }
                     '''
+                    } // withEnv
                 }
             }
         }
 
         stage('Archive Outputs') {
             steps {
+                // Copy from local output dir into the Jenkins workspace so
+                // archiveArtifacts (which is workspace-relative) can find them.
+                powershell '''
+                    $dest = "$env:WORKSPACE\\test-data"
+                    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+                    Copy-Item -Path "$env:OUTPUT_DIR\\*.nc" -Destination $dest -Force
+                '''
                 archiveArtifacts artifacts: 'test-data/*.nc', fingerprint: true, allowEmptyArchive: false
             }
         }
