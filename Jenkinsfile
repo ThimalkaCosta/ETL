@@ -1,10 +1,12 @@
 pipeline {
     agent any
 
+    // Path to Python inside the project venv – adjust if Jenkins checks out
+    // to a different location or you want a system-wide Python instead.
     environment {
-        IMAGE_NAME  = "copernicus-etl"
-        IMAGE_TAG   = "${BUILD_NUMBER}"
-        OUTPUT_DIR  = "${WORKSPACE}/test-data"
+        PYTHON      = "${WORKSPACE}\\venv\\Scripts\\python.exe"
+        PIP         = "${WORKSPACE}\\venv\\Scripts\\pip.exe"
+        OUTPUT_DIR  = "${WORKSPACE}\\test-data"
     }
 
     options {
@@ -20,37 +22,44 @@ pipeline {
             }
         }
 
-        stage('Build Image') {
+        stage('Setup Python Environment') {
             steps {
-                script {
-                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
-                }
+                powershell '''
+                    # Create venv if it doesn't already exist
+                    if (-Not (Test-Path "$env:WORKSPACE\\venv")) {
+                        Write-Host "Creating virtual environment..."
+                        python -m venv "$env:WORKSPACE\\venv"
+                    } else {
+                        Write-Host "Virtual environment already exists, skipping creation."
+                    }
+
+                    # Upgrade pip and install dependencies
+                    & "$env:WORKSPACE\\venv\\Scripts\\pip.exe" install --upgrade pip --quiet
+                    & "$env:WORKSPACE\\venv\\Scripts\\pip.exe" install -r "$env:WORKSPACE\\requirements.txt" --quiet
+                    Write-Host "Dependencies installed."
+                '''
             }
         }
 
         stage('Run ETL') {
             steps {
-                // Credentials stored in Jenkins as a "Username with password"
-                // credential with ID: copernicus-marine-credentials
+                // Credentials stored in Jenkins as "Username with password"
+                // Manage Jenkins > Credentials > Global > Add Credentials
+                // Kind: Username with password  |  ID: copernicus-marine-credentials
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'copernicus-marine-credentials',
-                        usernameVariable: 'CMEMS_USER',
-                        passwordVariable: 'CMEMS_PASS'
+                        usernameVariable: 'COPERNICUSMARINE_USERNAME',
+                        passwordVariable: 'COPERNICUSMARINE_PASSWORD'
                     )
                 ]) {
-                    script {
-                        // Ensure the output directory exists on the host
-                        sh "mkdir -p ${OUTPUT_DIR}"
-
-                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").inside(
-                            "--env COPERNICUSMARINE_USERNAME=${CMEMS_USER} " +
-                            "--env COPERNICUSMARINE_PASSWORD=${CMEMS_PASS} " +
-                            "-v ${OUTPUT_DIR}:/app/test-data"
-                        ) {
-                            sh 'python run.py'
+                    powershell '''
+                        New-Item -ItemType Directory -Force -Path "$env:OUTPUT_DIR" | Out-Null
+                        & "$env:PYTHON" "$env:WORKSPACE\\run.py"
+                        if ($LASTEXITCODE -ne 0) {
+                            throw "run.py exited with code $LASTEXITCODE"
                         }
-                    }
+                    '''
                 }
             }
         }
@@ -63,10 +72,6 @@ pipeline {
     }
 
     post {
-        always {
-            // Remove the image to keep the agent clean
-            sh "docker rmi ${IMAGE_NAME}:${IMAGE_TAG} || true"
-        }
         success {
             echo "ETL pipeline completed successfully. Artifacts archived."
         }
